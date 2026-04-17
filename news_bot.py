@@ -1,7 +1,7 @@
 """
 Daily Tech News Bot - Enhanced Version
 Uses OpenAI GPT-4o-mini with web search
-Sends rich digest to Telegram with source links, productivity tips, and trending tools
+Sends rich digest to Telegram in multiple messages (avoids 4096 char limit)
 
 Install: pip install openai requests
 GitHub Secrets needed:
@@ -24,36 +24,36 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 
 
 # ─────────────────────────────────────────────
-# SECTION 1 — Top Tech News (5 stories)
+# SECTION 1 — Top Tech News
 # ─────────────────────────────────────────────
 def fetch_top_news() -> list[dict]:
     today = datetime.now().strftime("%B %d, %Y")
     prompt = f"""You are a senior tech news curator. Today is {today}.
-Search the web and find the TOP 5 most important and trending tech stories
+Search the web and find the TOP 5 most important trending tech stories
 from the last 48 hours across: DevOps & CI/CD, AWS Cloud, AI & LLM, Platform Engineering, SRE/Observability.
 
-Prioritize: major product launches, security patches, breaking changes, important releases, industry shifts.
+Prioritize: major product launches, security patches, breaking changes, important releases.
 
 Return ONLY a valid JSON array, no markdown, no backticks:
 [
   {{
     "rank": 1,
     "topic": "DevOps & CI/CD",
-    "headline": "Concise impactful headline",
-    "summary": "2 sentences. What happened and why engineers should care.",
-    "source": "Publication or blog name",
+    "headline": "Concise headline under 12 words",
+    "summary": "Max 2 short sentences. What happened and why it matters.",
+    "source": "Publication name",
     "url": "https://actual-article-url.com",
     "emoji": "relevant emoji"
   }}
 ]
-Use real URLs to real articles published in the last 48 hours. Include diverse topics."""
+Use real URLs. Keep summaries SHORT."""
 
     response = client.responses.create(
         model="gpt-4o-mini",
         tools=[{"type": "web_search_preview"}],
         input=prompt,
     )
-    return _parse_json_response(response)
+    return _parse_json_list(response)
 
 
 # ─────────────────────────────────────────────
@@ -61,20 +61,17 @@ Use real URLs to real articles published in the last 48 hours. Include diverse t
 # ─────────────────────────────────────────────
 def fetch_ai_devops_tools() -> list[dict]:
     today = datetime.now().strftime("%B %d, %Y")
-    prompt = f"""Today is {today}. Search the web for the TOP 3 trending AI-powered tools
-for DevOps engineers right now — things like AI coding assistants, AI for infrastructure,
-AIOps, AI-powered monitoring, AI for IaC, AI for security, LLM-based CLI tools, etc.
-
-Focus on tools that are newly released, recently updated, or gaining traction this week.
+    prompt = f"""Today is {today}. Search the web for TOP 3 trending AI-powered tools
+for DevOps engineers right now — AI coding assistants, AIOps, AI for IaC, AI monitoring, LLM CLI tools, etc.
 
 Return ONLY a valid JSON array, no markdown, no backticks:
 [
   {{
     "name": "Tool name",
-    "category": "e.g. AI Coding / AIOps / IaC / Security",
-    "what_it_does": "1 sentence description",
-    "why_useful": "1 sentence on why DevOps engineers should try it",
-    "url": "https://tool-website-or-article.com",
+    "category": "AI Coding / AIOps / IaC / Security / etc",
+    "what_it_does": "One short sentence.",
+    "why_useful": "One short sentence on why DevOps engineers should try it.",
+    "url": "https://tool-url.com",
     "emoji": "relevant emoji"
   }}
 ]"""
@@ -84,28 +81,24 @@ Return ONLY a valid JSON array, no markdown, no backticks:
         tools=[{"type": "web_search_preview"}],
         input=prompt,
     )
-    return _parse_json_response(response)
+    return _parse_json_list(response)
 
 
 # ─────────────────────────────────────────────
-# SECTION 3 — What's Trending in DevOps
+# SECTION 3 — Trending in DevOps
 # ─────────────────────────────────────────────
 def fetch_devops_trends() -> list[dict]:
     today = datetime.now().strftime("%B %d, %Y")
-    prompt = f"""Today is {today}. Search the web for the TOP 3 hottest trends,
-discussions, or debates in the DevOps/Platform Engineering/SRE community right now.
-
-This could be: a new methodology gaining traction, a hot Reddit/HN thread,
-a controversial opinion piece, a new best practice, an emerging pattern like
-platform engineering, GitOps, FinOps, chaos engineering, etc.
+    prompt = f"""Today is {today}. Search the web for TOP 3 hottest trends or discussions
+in the DevOps/Platform Engineering/SRE community right now.
 
 Return ONLY a valid JSON array, no markdown, no backticks:
 [
   {{
-    "trend": "Trend name or topic",
-    "summary": "2 sentences. What is it and why is the community excited or divided.",
-    "source": "Where this is being discussed",
-    "url": "https://article-or-discussion-url.com",
+    "trend": "Trend name",
+    "summary": "Max 2 short sentences on what it is and why the community cares.",
+    "source": "Source name",
+    "url": "https://url.com",
     "emoji": "relevant emoji"
   }}
 ]"""
@@ -115,25 +108,24 @@ Return ONLY a valid JSON array, no markdown, no backticks:
         tools=[{"type": "web_search_preview"}],
         input=prompt,
     )
-    return _parse_json_response(response)
+    return _parse_json_list(response)
 
 
 # ─────────────────────────────────────────────
-# SECTION 4 — Daily Productivity Tip
+# SECTION 4 — Productivity Tip
 # ─────────────────────────────────────────────
 def fetch_productivity_tip() -> dict:
     today = datetime.now().strftime("%B %d, %Y")
-    prompt = f"""Today is {today}. Give ONE highly practical productivity tip for a DevOps/Cloud engineer.
-It should be a specific command, workflow trick, tool shortcut, or lesser-known feature
-that saves real time. Rotate between: shell/terminal tricks, kubectl tips, AWS CLI tricks,
-git tricks, Docker tips, monitoring shortcuts, VS Code tricks, etc.
+    prompt = f"""Today is {today}. Give ONE practical productivity tip for a DevOps/Cloud engineer.
+A specific command, workflow trick, or lesser-known feature that saves real time.
+Rotate between: shell tricks, kubectl, AWS CLI, git, Docker, VS Code, monitoring shortcuts.
 
 Return ONLY a valid JSON object, no markdown, no backticks:
 {{
   "tip_title": "Short catchy title",
-  "tip": "The actual tip with example command or steps if applicable",
-  "category": "e.g. Shell / Kubernetes / AWS CLI / Git / Docker",
-  "url": "https://optional-reference-link.com"
+  "tip": "The actual tip. Keep it under 3 sentences. Include example command if applicable.",
+  "category": "Shell / Kubernetes / AWS CLI / Git / Docker / etc",
+  "url": "https://reference-link.com"
 }}"""
 
     response = client.responses.create(
@@ -141,11 +133,10 @@ Return ONLY a valid JSON object, no markdown, no backticks:
         tools=[{"type": "web_search_preview"}],
         input=prompt,
     )
-    text = _extract_text(response).strip()
-    start = text.find("{")
-    end = text.rfind("}")
+    text = _extract_text(response).strip().replace("```json", "").replace("```", "")
+    start, end = text.find("{"), text.rfind("}")
     if start == -1 or end == -1:
-        return {"tip_title": "Tip of the day", "tip": text[:300], "category": "General", "url": ""}
+        return {"tip_title": "Tip of the day", "tip": text[:200], "category": "General", "url": ""}
     return json.loads(text[start:end + 1])
 
 
@@ -153,139 +144,155 @@ Return ONLY a valid JSON object, no markdown, no backticks:
 # Helpers
 # ─────────────────────────────────────────────
 def _extract_text(response) -> str:
-    full_text = ""
+    out = ""
     for block in response.output:
         if block.type == "message":
             for content in block.content:
                 if content.type == "output_text":
-                    full_text += content.text
-    return full_text
+                    out += content.text
+    return out
 
 
-def _parse_json_response(response) -> list[dict]:
-    text = _extract_text(response).strip()
-    text = text.replace("```json", "").replace("```", "")
-    start = text.find("[")
-    end = text.rfind("]")
+def _parse_json_list(response) -> list[dict]:
+    text = _extract_text(response).strip().replace("```json", "").replace("```", "")
+    start, end = text.find("["), text.rfind("]")
     if start == -1 or end == -1:
-        print(f"  Warning: no JSON array found in response: {text[:200]}")
+        print(f"  Warning: no JSON found: {text[:150]}")
         return []
     return json.loads(text[start:end + 1])
 
 
-def escape_md(text: str) -> str:
+def esc(text: str) -> str:
     """Escape special chars for Telegram MarkdownV2."""
     for ch in r"_*[]()~`>#+-=|{}.!":
-        text = text.replace(ch, f"\\{ch}")
+        text = str(text).replace(ch, f"\\{ch}")
     return text
 
 
 # ─────────────────────────────────────────────
-# Format full Telegram message
+# Build separate message chunks
 # ─────────────────────────────────────────────
-def format_message(news, tools, trends, tip) -> str:
+def build_messages(news, tools, trends, tip) -> list[str]:
     today = datetime.now().strftime("%A, %B %d %Y")
-    lines = []
+    messages = []
 
-    # Header
-    lines += [
+    # ── Message 1: Header + Top News ──
+    lines = [
         f"🚀 *Daily DevOps & AI Digest*",
-        f"📅 {today}",
+        f"📅 {esc(today)}",
+        "",
+        "━━━━━━━━━━━━━━━━━━━━━━",
+        "📰 *TOP TECH NEWS*",
         "",
     ]
-
-    # Section 1 — Top News
-    lines += ["━━━━━━━━━━━━━━━━━━━━━━", "📰 *TOP TECH NEWS*", ""]
     for a in news:
-        emoji = a.get("emoji", "📌")
-        topic = a.get("topic", "Tech")
-        headline = a.get("headline", "")
-        summary = a.get("summary", "")
-        source = a.get("source", "")
-        url = a.get("url", "")
-        lines.append(f"{emoji} *\\#{a.get('rank','')} {escape_md(topic)}*")
-        lines.append(f"*{escape_md(headline)}*")
-        lines.append(escape_md(summary))
+        emoji  = a.get("emoji", "📌")
+        rank   = a.get("rank", "")
+        topic  = esc(a.get("topic", "Tech"))
+        hl     = esc(a.get("headline", ""))
+        summ   = esc(a.get("summary", ""))
+        source = esc(a.get("source", ""))
+        url    = a.get("url", "")
+        lines.append(f"{emoji} *\\#{rank} {topic}*")
+        lines.append(f"*{hl}*")
+        lines.append(summ)
         if url:
-            lines.append(f"🔗 [Read more]({url}) — _{escape_md(source)}_")
+            lines.append(f"🔗 [Read more]({url}) — _{source}_")
         else:
-            lines.append(f"_{escape_md(source)}_")
+            lines.append(f"_{source}_")
         lines.append("")
+    messages.append("\n".join(lines))
 
-    # Section 2 — AI Tools for DevOps
-    lines += ["━━━━━━━━━━━━━━━━━━━━━━", "🤖 *TRENDING AI TOOLS FOR DEVOPS*", ""]
+    # ── Message 2: AI Tools ──
+    lines = [
+        "━━━━━━━━━━━━━━━━━━━━━━",
+        "🤖 *TRENDING AI TOOLS FOR DEVOPS*",
+        "",
+    ]
     for t in tools:
         emoji = t.get("emoji", "🛠")
-        name = t.get("name", "")
-        category = t.get("category", "")
-        what = t.get("what_it_does", "")
-        why = t.get("why_useful", "")
-        url = t.get("url", "")
-        lines.append(f"{emoji} *{escape_md(name)}* \\| _{escape_md(category)}_")
-        lines.append(escape_md(what))
-        lines.append(f"💡 {escape_md(why)}")
+        name  = esc(t.get("name", ""))
+        cat   = esc(t.get("category", ""))
+        what  = esc(t.get("what_it_does", ""))
+        why   = esc(t.get("why_useful", ""))
+        url   = t.get("url", "")
+        lines.append(f"{emoji} *{name}* \\| _{cat}_")
+        lines.append(what)
+        lines.append(f"💡 {why}")
         if url:
             lines.append(f"🔗 [Try it]({url})")
         lines.append("")
+    messages.append("\n".join(lines))
 
-    # Section 3 — DevOps Trends
-    lines += ["━━━━━━━━━━━━━━━━━━━━━━", "📈 *WHAT'S TRENDING IN DEVOPS*", ""]
+    # ── Message 3: Trends ──
+    lines = [
+        "━━━━━━━━━━━━━━━━━━━━━━",
+        "📈 *WHAT'S TRENDING IN DEVOPS*",
+        "",
+    ]
     for tr in trends:
-        emoji = tr.get("emoji", "🔥")
-        trend = tr.get("trend", "")
-        summary = tr.get("summary", "")
-        source = tr.get("source", "")
-        url = tr.get("url", "")
-        lines.append(f"{emoji} *{escape_md(trend)}*")
-        lines.append(escape_md(summary))
+        emoji  = tr.get("emoji", "🔥")
+        trend  = esc(tr.get("trend", ""))
+        summ   = esc(tr.get("summary", ""))
+        source = esc(tr.get("source", ""))
+        url    = tr.get("url", "")
+        lines.append(f"{emoji} *{trend}*")
+        lines.append(summ)
         if url:
-            lines.append(f"🔗 [Read more]({url}) — _{escape_md(source)}_")
+            lines.append(f"🔗 [Read more]({url}) — _{source}_")
         lines.append("")
+    messages.append("\n".join(lines))
 
-    # Section 4 — Productivity Tip
-    lines += ["━━━━━━━━━━━━━━━━━━━━━━", "⚡ *PRODUCTIVITY TIP OF THE DAY*", ""]
-    tip_title = tip.get("tip_title", "")
-    tip_text = tip.get("tip", "")
-    tip_cat = tip.get("category", "")
+    # ── Message 4: Tip + Footer ──
+    lines = [
+        "━━━━━━━━━━━━━━━━━━━━━━",
+        "⚡ *PRODUCTIVITY TIP OF THE DAY*",
+        "",
+        f"*{esc(tip.get('tip_title',''))}* \\| _{esc(tip.get('category',''))}_",
+        esc(tip.get("tip", "")),
+    ]
     tip_url = tip.get("url", "")
-    lines.append(f"*{escape_md(tip_title)}* \\| _{escape_md(tip_cat)}_")
-    lines.append(escape_md(tip_text))
     if tip_url:
         lines.append(f"🔗 [Reference]({tip_url})")
-    lines.append("")
-
-    # Footer
     lines += [
+        "",
         "━━━━━━━━━━━━━━━━━━━━━━",
         "_Powered by OpenAI GPT\\-4o\\-mini \\+ Web Search_",
         "_Delivered daily at 8:00 AM IST_ 🇮🇳",
     ]
+    messages.append("\n".join(lines))
 
-    return "\n".join(lines)
+    return messages
 
 
 # ─────────────────────────────────────────────
-# Send to Telegram
+# Send to Telegram (with plain text fallback)
 # ─────────────────────────────────────────────
 def send_telegram(text: str):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    resp = requests.post(url, json={
+
+    def post(payload):
+        r = requests.post(url, json=payload, timeout=15)
+        return r.json()
+
+    result = post({
         "chat_id": TELEGRAM_CHAT_ID,
         "text": text,
         "parse_mode": "MarkdownV2",
         "disable_web_page_preview": False,
-    }, timeout=15)
-    result = resp.json()
+    })
+
     if not result.get("ok"):
-        # Fallback: send as plain text if markdown fails
-        print(f"  MarkdownV2 failed: {result.get('description')} — retrying as plain text")
-        plain = text.replace("\\", "").replace("*", "").replace("_", "").replace("`", "")
-        resp2 = requests.post(url, json={
+        print(f"  MarkdownV2 failed ({result.get('description')}) — retrying as plain text")
+        plain = text
+        for ch in r"\_*[]()~`>#+-=|{}.!":
+            plain = plain.replace(f"\\{ch}", ch)
+        plain = plain.replace("*", "").replace("_", "").replace("`", "")
+        result2 = post({
             "chat_id": TELEGRAM_CHAT_ID,
-            "text": plain,
+            "text": plain[:4000],
             "disable_web_page_preview": False,
-        }, timeout=15)
-        result2 = resp2.json()
+        })
         if not result2.get("ok"):
             raise RuntimeError(f"Telegram error: {result2}")
 
@@ -312,13 +319,13 @@ def main():
     tip = fetch_productivity_tip()
     print(f"        Got tip: {tip.get('tip_title', '')}")
 
-    print("  Formatting and sending to Telegram...")
-    message = format_message(news, tools, trends, tip)
-    send_telegram(message)
+    print("  Sending 4 messages to Telegram...")
+    messages = build_messages(news, tools, trends, tip)
+    for i, msg in enumerate(messages, 1):
+        print(f"    Sending message {i}/{len(messages)} ({len(msg)} chars)...")
+        send_telegram(msg)
 
     print("  ✅ Done! Full digest sent successfully.")
-    print(f"\n{'='*60}\nPREVIEW:\n{'='*60}")
-    print(message.replace("\\", ""))
 
 
 if __name__ == "__main__":
